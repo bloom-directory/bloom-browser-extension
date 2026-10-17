@@ -7,14 +7,15 @@ let port = null;
 
 function connect() {
   if (port) return;
-  port = chrome.runtime.connectNative(HOST);
-  port.onMessage.addListener(command => {
+  const connection = chrome.runtime.connectNative(HOST);
+  port = connection;
+  connection.onMessage.addListener(command => {
     run(command)
       .then(value => ({ok: true, value}), error => ({ok: false, error: String(error.message || error)}))
-      .then(result => port?.postMessage({id: command.id, ...result}));
+      .then(result => { if (port === connection) connection.postMessage({id: command.id, ...result}); });
   });
   // Checkout restarted or stopped; the alarm reconnects. Reading lastError marks it handled.
-  port.onDisconnect.addListener(() => { void chrome.runtime.lastError; port = null; });
+  connection.onDisconnect.addListener(() => { void chrome.runtime.lastError; if (port === connection) port = null; });
 }
 
 async function bloomTab() {
@@ -27,6 +28,13 @@ async function run(command) {
   // Checkout updated the extension's files: load them (unpacked installs).
   if (command.action === 'version') return BLOOM_VERSION;
   if (command.action === 'reload') { setTimeout(() => chrome.runtime.reload(), 100); return {state: 'reloading'}; }
+  if (command.action === 'close') {
+    const tab = await bloomTab();
+    // Only the tab recorded by this extension, never another person's tab.
+    if (tab) await chrome.tabs.remove(tab.id);
+    await chrome.storage.session.remove('tabId');
+    return {state: 'closed'};
+  }
   if (command.action === 'open') {
     if (!SITES.test(command.url)) throw Error('Bloom only opens approved booking sites in this browser');
     let tab = await bloomTab();
