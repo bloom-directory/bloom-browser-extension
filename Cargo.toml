@@ -1,0 +1,13 @@
+[package]
+name = "bloom-browser-extension"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Browser extension assets and bundling for Bloom checkout"
+
+[dependencies]
+sha2 = "0.10"
+
+[dev-dependencies]
+base64 = "0.22"
+serde_json = "1"
